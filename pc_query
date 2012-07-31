@@ -212,7 +212,7 @@ def main(argv):
 
     parser = SafeConfigParser()
     parser.read(configfile)
-    db_path = path.expanduser(parser.get('default', 'db_path'))
+    db_path = path.expanduser(parser.get('database', 'path'))
     # testing if the db exists
     if not path.exists(db_path):
         sys.exit(str(db_path) + " file does not exist, please sync with pycardsyncer first.")
