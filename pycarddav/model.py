@@ -15,7 +15,7 @@ from __future__ import print_function
 try:
     import base64
     import sys
-    import vobject
+    from pycarddav import vobject
     from collections import defaultdict
 
 except ImportError, error:

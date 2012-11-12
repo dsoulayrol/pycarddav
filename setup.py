@@ -6,7 +6,6 @@ from setuptools import setup
 
 requirements = [
         'lxml',
-        'vobject',
         'requests',
         'urwid',
         ]

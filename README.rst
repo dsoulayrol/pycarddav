@@ -6,13 +6,18 @@ About
 *pyCardDAV* is supposed to provide a simple way of accessing a CardDAV_
 resource, mainly for use with mutt's query_command, but it might be of some
 use solo. *pyCardDAV* is some ugly python code (it's not *that* bad anymore)
-that holds together vobject_, lxml_, requests_ and pysqlite_.
+that holds together lxml_, requests_ and pysqlite_.
 
 .. _CardDav: http://en.wikipedia.org/wiki/CardDAV
-.. _vobject: http://vobject.skyhouseconsulting.com/
 .. _lxml: http://lxml.de/
 .. _pysqlite: http://code.google.com/p/pysqlite/
 .. _requests: http://python-requests.org
+
+*pyCardDAV* embeds its own version of vobject_, which is hardly ever
+updated now, to ease patching. vobject_ is distributed under the
+Apache license v2.0 terms. See vobject/LICENSE-2.0.txt.
+
+.. _vobject: http://vobject.skyhouseconsulting.com/
 
 Features
 --------
@@ -35,7 +40,7 @@ Copy and edit the supplied pycard.conf.sample file (default location is
 ~/.pycard/pycard.conf). If you don't want to store the password in clear text in
 the config file, *pyCardDAV* will ask for it while syncing.
 
-Make sure you have sqlite3 (normally available by default), vobject, lxml(>2),
+Make sure you have sqlite3 (normally available by default), lxml(>2),
 requests (>0.10), urwid (>0.9) installed.  Users of python 2.6 will also need
 to install argparse.
 

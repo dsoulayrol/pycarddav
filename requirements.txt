@@ -1,5 +1,4 @@
 requests
-vobject
 pytest
 urwid
 lxml
