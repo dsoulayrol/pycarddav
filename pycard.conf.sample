@@ -1,14 +1,33 @@
-[default]
+[Account work]
+# DAV credentials. Please note that the password is written in plain
+# text here. If the password is missing, it will be claimed at
+# synchronization time.
 user: username
 passwd: yourpassword
-resource: https://carddav.server.tld/davical/caldav.php/username/addressbook/
-# or for owncloud
-#resource:  https://[server]/owncloud/apps/contacts/carddav.php/addressbooks/[user]/[addressbook name]/
-# sabredav:
-#resource: https://[server]/sabredav/carddav.php/addressbooks/[user]/[addressbook name]/
-base_url: https://carddav.serer.tld
-insecure_ssl: 0
-db_path: /home/localuser/.pycard/abook.db
-# select sabredav or davical
-davserver: sabredav
-DEBUG: 0
+
+# The path to the CardDAV resource.
+#resource: https://[server]/owncloud/apps/contacts/carddav.php/addressbooks/[user]/[addressbook name]/
+resource: https://carddav.server.tld:443/davical/caldav.php/username/addressbook/
+
+# Authentication Method: possible values are: basic (the default), or digest
+# (for servers that need HTTP digest authentification)
+#auth: basic
+
+# If verify is set to False, no SSL Certificate checks are done at all. Please
+# be aware of the security implications. The default value is True You can also
+# set verify to a path to your CAcert file
+#verify: True
+
+[Account private]
+user: anothername
+passwd: otherPasswd
+
+resource: https://domain.tld/contacts/addressbook/
+
+[sqlite]
+# The location of the local SQLite contacts database.
+# Defaults to $XDG_DATA_HOME/pycard/abook.db
+#path: ~/.pycard/abook.db
+
+[default]
+debug: False

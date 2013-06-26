@@ -1,1 +1,6 @@
 *.pyc
+.*.swp
+*.tgz
+dist/
+MANIFEST
+build/

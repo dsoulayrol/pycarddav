@@ -1,0 +1,111 @@
+#!/usr/bin/env python2
+# vim: set ts=4 sw=4 expandtab sts=4:
+# Copyright (c) 2011-2013 Christian Geier & contributors
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+try:
+    import argparse
+    import logging
+    import sys
+
+    from pycarddav import ConfigurationParser
+    from pycarddav import controllers
+    from pycarddav import capture_user_interruption
+
+except ImportError as error:
+    sys.stderr.write(str(error))
+    sys.exit(1)
+
+
+class QueryConfigurationParser(ConfigurationParser):
+    """A specialized setup tool for cards query."""
+    def __init__(self):
+        ConfigurationParser.__init__(self, "prints contacts cards matching a search string",
+                                     check_accounts=False)
+
+        self._arg_parser.add_argument(
+            "-A", action="store_true", dest="query__display_all", default=False,
+            help="prints the whole card, not only name, "
+            "telephone numbers and email addresses")
+        self._arg_parser.add_argument(
+            "-m", action="store_true", dest="query__mutt_format", default=False,
+            help="only prints email addresses, in a mutt friendly format")
+        self._arg_parser.add_argument(
+            "-t", action="store_true", dest="query__tel", default=False,
+            help="only prints telephone number, analogue to -m "
+                 "(but in different sequence)")
+#        self._arg_parser.add_argument(
+#            "-e", action="store_true", dest="query__edit", default=False,
+#            help="edit the contact file.\n"
+#            "NOTE: this feature is experimental and will probably corrupt "
+#            "your *local* database. Your remote CardDAV resource will stay "
+#            "untouched, as long as You don't enable write support for the "
+#            "syncer.")
+        self._arg_parser.add_argument(
+            "query__search_string", metavar="SEARCHSTRING", default="",
+            help="the string to search for", nargs="?")
+        self._arg_parser.add_argument(
+            "-b", "--backup", action="store", dest="query__backup",
+            metavar="BACKUP",  help="backup the local db to BACKUP, "
+            "if a SEARCHSTRING is present, only backup cards matching it.")
+        self._arg_parser.add_argument(
+            "-i", "--import", metavar="FILE",
+            type=argparse.FileType("r"), dest="query__importing",
+            help="import vcard from FILE or STDIN into the first specified account")
+        self._arg_parser.add_argument(
+            "--delete", dest="query__delete", action="store_true",
+            help="delete card matching SEARCHSTRING")
+        self._arg_parser.add_argument(
+            "-a", "--account", action="append", dest="sync__accounts",
+            metavar="NAME", help="use only the NAME account (can be used more than once)")
+
+    def check(self, ns):
+        result = ConfigurationParser.check(self, ns)
+
+        accounts = [account.name for account in ns.accounts]
+        if ns.sync.accounts:
+            for name in set(ns.sync.accounts):
+                if not name in [a.name for a in ns.accounts]:
+                    logging.warn('Uknown account %s', name)
+                    ns.sync.accounts.remove(name)
+            if len(ns.sync.accounts) == 0:
+                logging.error('No valid account selected')
+                result = False
+        else:
+            ns.sync.accounts = accounts
+
+        ns.sync.accounts = list(set(ns.sync.accounts))
+
+        return result
+
+
+capture_user_interruption()
+
+# Read configuration.
+conf_parser = QueryConfigurationParser()
+conf = conf_parser.parse()
+if conf is None:
+    sys.exit(1)
+
+if conf.debug:
+    conf_parser.dump(conf)
+
+controllers.query(conf)

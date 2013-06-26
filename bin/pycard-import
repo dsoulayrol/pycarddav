@@ -1,0 +1,168 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+# vim: set ts=4 sw=4 expandtab sts=4:
+# Copyright (c) 2011-2013 Christian Geier & contributors
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+"""A pyCardDAV tool to create VCards from one email.
+"""
+
+
+import email
+import email.header
+import os
+import sys
+import traceback
+import logging
+
+import pycarddav
+import pycarddav.backend
+import pycarddav.model
+import pycarddav.ui
+
+
+class ImportConfigurationParser(pycarddav.ConfigurationParser):
+    """A specialized setup tool for importing a contact."""
+    def __init__(self):
+        pycarddav.ConfigurationParser.__init__(self, 'Import contacts from a mail on input.',
+                                               check_accounts=False)
+
+        self._arg_parser.epilog = 'Only the From header is parsed if no header is specified.'
+        self._arg_parser.add_argument(
+            '--batch', action='store_true', dest='batch', default=False,
+            help='do not open the editor')
+        self._arg_parser.add_argument(
+            '-n', '--dry-run', action='store_true', dest='dry_run', default=False,
+            help='do not actually update the database (implies --batch)')
+        self._arg_parser.add_argument(
+            "-a", "--account", action="store", dest="sync__account",
+            metavar="NAME", help="add to NAME account (can be used only once), if no valid acconut name is given, the first one from the config will be used")
+        # Headers selection. To: is the default.
+        self._arg_parser.add_argument(
+            '-f', '--from', action='append_const', dest='headers', const='From',
+            help='import the content of the From header')
+        self._arg_parser.add_argument(
+            '-t', '--to', action='append_const', dest='headers', const='To',
+            help='import the content of the To header')
+        self._arg_parser.add_argument(
+            '--cc', action='append_const', dest='headers', const='Cc',
+            help='import the content of the Cc header')
+        self._arg_parser.add_argument(
+            '--bcc', action='append_const', dest='headers', const='Bcc',
+            help='import the content of the Bcc header')
+
+    def check(self, conf):
+        accounts = [account.name for account in conf.accounts]
+        if conf.sync.account:
+            if conf.sync.account not in accounts:
+                logging.critical(conf.sync.account + ' is not a valid account')
+                sys.exit(1)
+        else:
+            conf.sync.account = accounts[0]
+
+        if conf.dry_run:
+            conf.batch = True
+        if not conf.headers:
+            conf.headers = ['From']
+
+        return pycarddav.ConfigurationParser.check(self, conf)
+
+
+class MailParser(object):
+    def __init__(self, conf, pipe):
+        self._conf = conf
+        self._db = pycarddav.backend.SQLiteDb(
+            conf.sqlite.path, "utf-8", "stricts", False)
+        self._msg = email.message_from_string(pipe.read())
+
+    def process_addresses(self, headers):
+        for header in headers:
+            address, display_name = self.parse_address(self._msg[header])
+            if address is None:
+                continue
+            vcard = pycarddav.model.vcard_from_email(display_name, address)
+            if self._conf.batch:
+                if not self._conf.dry_run:
+
+                    self._db.update(vcard, self._conf.sync.account, vcard.href, status=pycarddav.backend.NEW)
+            else:
+                pycarddav.ui.start_pane(pycarddav.ui.EditorPane(self._db, self._conf.sync.account, vcard))
+
+    def parse_address(self, header):
+        if header is None:
+            return None, ''
+
+        address_string = []
+        addresses = email.header.decode_header(header)
+        for string, enc in addresses:
+            try:
+                string = string.decode(enc)
+            except TypeError:
+                string = unicode(string)
+            address_string.append(string)
+
+        address_string = ' '.join(address_string)
+        display_name, address = email.utils.parseaddr(address_string)
+
+        return address, display_name
+
+
+def capture_tty():
+    """Walk the parent processes until a TTY is found.
+    """
+    sys.stdin = open('/dev/tty')
+    sys.stdout = open('/dev/tty', 'wb')
+    sys.stderr = open('/dev/tty', 'wb')
+
+    os.dup2(sys.stdin.fileno(), 0)
+    os.dup2(sys.stdout.fileno(), 1)
+    os.dup2(sys.stderr.fileno(), 2)
+
+
+def release_tty():
+    """closing the files"""
+    sys.stdin.close()
+    sys.stdout.close()
+    sys.stderr.close()
+
+
+def do_import():
+    """does the real work"""
+    conf = ImportConfigurationParser().parse()
+    if conf is None:
+        sys.exit(1)
+
+    parser = MailParser(conf, sys.stdin)
+
+    if not conf.batch:
+        capture_tty()
+    try:
+        parser.process_addresses(conf.headers)
+
+    except Exception:
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_tb, file=sys.stdout)
+    finally:
+        if not conf.batch:
+            release_tty()
+
+if __name__ == '__main__':
+    do_import()
